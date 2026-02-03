@@ -26,19 +26,13 @@
         // 👇👇 ZONE DE CONFIGURATION (URLS) 👇👇
         // ============================================================================
         
-        // 1. URL SCRIPT GOOGLE (Celle-ci est bonne, ne touchez pas !)
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYc_3ieQjpTTiebFG306gbAmGUq015rcgpIxBaAVTD67PTOdvaoWP5OPPLd9mBx13VHw/exec'; 
 
-        // 2. VOS LIENS GITHUB (CORRIGÉS)
-        // J'ai mis le bon nom de repo que j'ai vu dans vos liens : "Mon-Panier-Rochelais.github.io"
+        // LE FICHIER UNIQUE (Master File)
+        // Note : J'ai corrigé le lien pour qu'il pointe bien vers le fichier brut (raw)
         const REPO_BASE = 'https://raw.githubusercontent.com/TheoCoulongeat/Mon-Panier-Rochelais.github.io/main';
-        
-        // On utilise REPO_BASE pour que ce soit propre et sans erreur
-        const CSV_COMPOSITION = `${REPO_BASE}/composition.csv`;
-        const CSV_EXTRAS      = `${REPO_BASE}/extras.csv`;
-        const CSV_LIEUX       = `${REPO_BASE}/lieux.csv`;
-        const CSV_DEADLINES   = `${REPO_BASE}/deadlines.csv`;
-        const LOGO_URL        = `${REPO_BASE}/Logo.png`;
+        const CSV_MASTER_URL = `${REPO_BASE}/donnees.csv`;
+        const LOGO_URL       = `${REPO_BASE}/Logo.png`;
 
         // ============================================================================
         const { useState, useEffect } = React;
@@ -55,98 +49,92 @@
         // --- APPLICATION ---
         function MonPanierRochelais() {
             const [composition, setComposition] = useState([]);
-            const [config, setConfig] = useState({ panierPrice: 0, extras: [], pickupDays: [] });
+            const [config, setConfig] = useState({ panierPrice: 31.90, extras: [], pickupDays: [] });
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(false);
-
             const [showComposition, setShowComposition] = useState(false);
             const [selectedDay, setSelectedDay] = useState(null);
             const [orderConfirmed, setOrderConfirmed] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
-            const [formData, setFormData] = useState({
-                firstName: '', lastName: '', phone: '', email: '',
-                location: '', basketCount: 1, replacement: '', extras: {}, comment: ''
-            });
+            const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', email: '', location: '', basketCount: 1, replacement: '', extras: {}, comment: '' });
 
-            // ── CHARGEMENT DES 4 CSV EN PARALLÈLE ──
+            // ── CHARGEMENT INTELLIGENT DU FICHIER UNIQUE ──
             useEffect(() => {
-                const fetchCSV = (url) => new Promise((resolve, reject) => {
-                    Papa.parse(url, {
-                        download: true, header: true, skipEmptyLines: true,
-                        complete: (res) => resolve(res.data),
-                        error: (err) => reject(err)
-                    });
-                });
+                Papa.parse(CSV_MASTER_URL, {
+                    download: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        try {
+                            const rawData = results.data;
+                            let currentSection = '';
+                            
+                            // Variables temporaires
+                            let tempPrice = 31.90;
+                            let tempCompo = [];
+                            let tempExtras = [];
+                            let tempDeadlines = [];
+                            let tempLieux = [];
 
-                Promise.all([
-                    fetchCSV(CSV_COMPOSITION), 
-                    fetchCSV(CSV_EXTRAS),
-                    fetchCSV(CSV_DEADLINES), // On charge les dates
-                    fetchCSV(CSV_LIEUX)      // On charge les lieux
-                ])
-                .then(([compoData, extrasData, deadlinesData, lieuxData]) => {
-                    
-                    // 1. Composition
-                    const cleanCompo = compoData.map(row => ({
-                        nom: (row['nom'] || row['Nom'] || '').trim(),
-                        quantite: (row['quantite'] || row['Quantité'] || '').trim()
-                    })).filter(r => r.nom);
+                            // Lecture ligne par ligne
+                            rawData.forEach(row => {
+                                if (row.length === 0) return;
+                                const firstCell = (row[0] || '').trim();
 
-                    // 2. Extras & Prix
-                    let price = 31.90;
-                    const cleanExtras = [];
-                    extrasData.forEach((row, index) => {
-                        const name = (row['Nom'] || row['nom'] || '').trim();
-                        const rawPrice = (row['Prix'] || row['prix'] || '0').replace(',', '.');
-                        const valPrice = parseFloat(rawPrice);
-                        if (name === 'PRIX_PANIER') price = valPrice;
-                        else if (name !== '') cleanExtras.push({ id: index, name: name, price: valPrice });
-                    });
+                                // 🛑 NOUVEAU : On ignore les lignes qui commencent par //
+                                if (firstCell.startsWith('//')) return;
 
-                    // 3. FUSION DEADLINES + LIEUX
-                    const daysMap = {};
-                    
-                    // A. On prépare les jours avec leurs deadlines
-                    deadlinesData.forEach(row => {
-                        const jour = (row['Jour'] || '').trim();
-                        const date = (row['Date'] || '').trim();
-                        const heure = (row['Heure'] || '').trim();
-                        if (jour && date && heure) {
-                            const key = jour.toLowerCase();
-                            // On crée la date ISO complète (YYYY-MM-DDTHH:MM)
-                            const fullDeadline = `${date}T${heure}`;
-                            daysMap[key] = { id: key, label: jour, deadline: fullDeadline, locations: [] };
+                                // Détection des sections
+                                if (firstCell.startsWith('[') && firstCell.endsWith(']')) {
+                                    currentSection = firstCell;
+                                    return;
+                                }
+
+                                // Remplissage selon la section active
+                                if (currentSection === '[CONFIG]') {
+                                    if (firstCell === 'PRIX') tempPrice = parseFloat((row[1] || '0').replace(',', '.'));
+                                }
+                                else if (currentSection === '[PANIER]') {
+                                    if (row[1]) tempCompo.push({ nom: firstCell, quantite: row[1] });
+                                }
+                                else if (currentSection === '[EXTRAS]') {
+                                    if (row[1]) tempExtras.push({ id: tempExtras.length + 1, name: firstCell, price: parseFloat((row[1] || '0').replace(',', '.')) });
+                                }
+                                else if (currentSection === '[DEADLINES]') {
+                                    if (row[1] && row[2]) tempDeadlines.push({ jour: firstCell, fullDate: `${row[1]}T${row[2]}` });
+                                }
+                                else if (currentSection === '[LIEUX]') {
+                                    if (row[1]) tempLieux.push({ jour: firstCell, lieu: row[1] });
+                                }
+                            });
+
+                            // Fusion Deadlines + Lieux
+                            const daysMap = {};
+                            tempDeadlines.forEach(d => {
+                                const key = d.jour.toLowerCase();
+                                daysMap[key] = { id: key, label: d.jour, deadline: d.fullDate, locations: [] };
+                            });
+                            tempLieux.forEach(l => {
+                                const key = l.jour.toLowerCase();
+                                if (daysMap[key]) daysMap[key].locations.push(l.lieu);
+                            });
+
+                            // Mise à jour de l'app
+                            setComposition(tempCompo);
+                            setConfig({ panierPrice: tempPrice, extras: tempExtras, pickupDays: Object.values(daysMap) });
+                            setLoading(false);
+
+                        } catch (err) {
+                            console.error("Erreur parsing", err);
+                            setError(true);
+                            setLoading(false);
                         }
-                    });
-
-                    // B. On ajoute les lieux aux bons jours
-                    lieuxData.forEach(row => {
-                        const jour = (row['Jour'] || '').trim();
-                        const lieu = (row['Lieu'] || '').trim();
-                        if (jour && lieu) {
-                            const key = jour.toLowerCase();
-                            // Si le jour existe dans les deadlines, on ajoute le lieu
-                            if (daysMap[key]) {
-                                daysMap[key].locations.push(lieu);
-                            }
-                        }
-                    });
-
-                    const cleanDays = Object.values(daysMap);
-
-                    setComposition(cleanCompo);
-                    setConfig({ panierPrice: price, extras: cleanExtras, pickupDays: cleanDays });
-                    setLoading(false);
-                })
-                .catch((err) => {
-                    console.error("Erreur chargement CSV", err);
-                    setError(true);
-                    setLoading(false);
+                    },
+                    error: () => { setError(true); setLoading(false); }
                 });
             }, []);
 
             const isDayAvailable = (deadline) => {
-                if(!deadline) return true; 
+                if(!deadline) return true;
                 return new Date() < new Date(deadline);
             };
 
@@ -203,7 +191,7 @@
             );
 
             if (loading) return <div className="min-h-screen flex items-center justify-center text-[#F5F1E8]"><Loader className="animate-spin mr-2"/> Chargement des produits...</div>;
-            if (error) return <div className="min-h-screen flex items-center justify-center text-red-400 text-center p-4">Erreur de chargement des fichiers GitHub.<br/>Vérifiez que "deadlines.csv" et "lieux.csv" sont bien créés.</div>;
+            if (error) return <div className="min-h-screen flex items-center justify-center text-red-400 text-center p-4">Erreur de chargement. Vérifiez que "donnees.csv" est bien créé sur GitHub.</div>;
 
             return (
                 <div className="min-h-screen bg-[#0B2822] text-[#F5F1E8] pb-20">
