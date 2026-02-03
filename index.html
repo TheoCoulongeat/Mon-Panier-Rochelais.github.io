@@ -6,16 +6,16 @@
     <title>Mon Panier Rochelais</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
-    <style>
-        body { background-color: #0B2822; color: #F5F1E8; }
+    <style> 
+        body { background-color: #0B2822; color: #F5F1E8; } 
+        /* Animation pour le chargement */
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -23,28 +23,21 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
-
-        // --- ICONES (Refaites en SVG simple pour éviter les imports complexes) ---
-        const ChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
-        const ChevronUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>;
-        const ShoppingBasket = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m5 11 4-7"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8c.9 0 1.8-.7 2-1.6l1.7-7.4"/><path d="m9 11 1 9"/><path d="m4.5 11 .1 9"/><path d="m15 11-1 9"/></svg>;
-        const Plus = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
-        const Minus = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>;
-        const Check = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 6 9 17l-5-5"/></svg>;
-        const Loader = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
-
         // ============================================================================
-        // 🔗 CONFIGURATION
+        // 👇👇 ZONE DE CONFIGURATION À MODIFIER 👇👇
         // ============================================================================
         
-        // 👇👇 COLLE TON LIEN CSV RAW ICI (entre les guillemets) 👇👇
-        const CSV_URL = 'https://raw.githubusercontent.com/TheoCoulongeat/Mon-Panier-Rochelais.github.io/refs/heads/main/composition.csv';
+        // 1. COLLEZ L'URL DE VOTRE SCRIPT GOOGLE ICI (celle qui finit par /exec)
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/XXXXXXXXXXXXXXXXXXXXX/exec'; 
 
-        // 👇👇 COLLE TON LIEN IMAGE RAW ICI (entre les guillemets) 👇👇
-        const LOGO_URL = 'https://github.com/TheoCoulongeat/Mon-Panier-Rochelais.github.io/blob/main/Logo.png?raw=true';
+        // 2. VOS LIENS GITHUB
+        const CSV_URL = 'https://raw.githubusercontent.com/TheoCoulongeat/VOTRE_REPO/main/composition.csv';
+        const LOGO_URL = 'https://raw.githubusercontent.com/TheoCoulongeat/VOTRE_REPO/main/Logo.png';
+
+        // ============================================================================
 
 
+        // --- CONFIGURATION SEMAINE (Prix, Dates...) ---
         const WEEKLY_CONFIG = {
             panierPrice: 31.90,
             extras: [
@@ -55,184 +48,102 @@
                 { id: 5, name: "Fromage de chèvre", price: 7.80 }
             ],
             pickupDays: [
-                {
-                    id: 'mercredi', label: 'Mercredi', deadline: '2026-02-04T12:00',
-                    locations: [
-                        '12h00 — Parking de la salle L\'Agora (proche médiathèque Saint-Xandre)',
-                        '12h45 — Parking école Jean de La Fontaine, rue du Chemin Bas, Marsilly',
-                        '13h15 — Centre bourg, 17 rue Léonce Vieljeux, Nieul-sur-Mer',
-                        '13h45 — Parking espace Saint-Exupéry, L\'Houmeau',
-                        '16h30 — Parking du Belvédère, Île de Ré',
-                        '17h10 — Parking collège de Beauregard, Sautel',
-                        '17h45 — Esplanade des parcs, La Rochelle (près salle de basket)',
-                        '18h30 — Parking face à Palmilud, Périgny (école maternelle)',
-                        '19h00 — Parking face à la pharmacie, proche Intermarché, Villeneuve',
-                        '19h30 — Parking salle Giraudeau, Mireuil'
-                    ]
-                },
-                {
-                    id: 'jeudi', label: 'Jeudi', deadline: '2026-02-05T12:00',
-                    locations: [
-                        '12h00 — Parking du bowling des Minimes',
-                        '12h30 — Parking du SUAPSE, face Carrefour Market, Tasdon/Aytré',
-                        '15h30 — Gymnase municipal, rue Pierre de Coubertin, Dompierre-sur-Mer',
-                        '16h00 — Salle des fêtes, 1 rue de l\'Aunis, Sainte-Soulle',
-                        '16h30 — Place de la mairie, La Jarrie',
-                        '17h00 — Parking de la mairie, La Jarne',
-                        '17h30 — Centre municipal de rencontre, Saint-Rogatien',
-                        '18h00 — Salle polyvalente Jean Fillipi, Puilboreau'
-                    ]
-                },
-                {
-                    id: 'vendredi', label: 'Vendredi', deadline: '2026-02-06T12:00',
-                    locations: [
-                        '12h00 — Salle polyvalente, Lagord',
-                        '12h30 — Ruines de l\'église, Laleu',
-                        '13h00 — Face au stade Rochelais, Port Neuf (place de l\'Île de France)',
-                        '13h35 — Parc municipal, Salles-sur-Mer',
-                        '14h30 — Fond de l\'impasse rue de la Marne (près du commissariat) La Rochelle',
-                        '16h45 - 17h20 — École de Villedoux',
-                        '18h00 — Salle polyvalente, Saint-Vivien',
-                        '18h30 — Parking du stade, Châtelaillon-Plage',
-                        '19h15 — Entrée du parking, avenue Marie-François Sadi Carnot, Rochefort'
-                    ]
-                },
-                {
-                    id: 'samedi', label: 'Samedi', deadline: '2026-02-07T10:00',
-                    locations: [
-                        '12h00 — Face à l\'école Marie Eustelle, Marans',
-                        '12h30 — Parking face à l\'église, Andilly',
-                        '13h00 — Face à la mairie, Vérines',
-                        '13h30 — Parking de la mairie, Saint-Sauveur-d\'Aunis',
-                        '14h10 — Parking du collège, Aigrefeuille-d\'Aunis',
-                        '14h45 — Monument aux morts, Surgères',
-                        '15h40 — Salles municipales de Lafond, 48 avenue Antoine de Saint-Exupéry, La Rochelle'
-                    ]
-                }
+                { id: 'mercredi', label: 'Mercredi', deadline: '2026-02-04T12:00', locations: ['12h00 — Parking de la salle L\'Agora (proche médiathèque Saint-Xandre)', '12h45 — Parking école Jean de La Fontaine, rue du Chemin Bas, Marsilly', '13h15 — Centre bourg, 17 rue Léonce Vieljeux, Nieul-sur-Mer', '13h45 — Parking espace Saint-Exupéry, L\'Houmeau', '16h30 — Parking du Belvédère, Île de Ré', '17h10 — Parking collège de Beauregard, Sautel', '17h45 — Esplanade des parcs, La Rochelle (près salle de basket)', '18h30 — Parking face à Palmilud, Périgny (école maternelle)', '19h00 — Parking face à la pharmacie, proche Intermarché, Villeneuve', '19h30 — Parking salle Giraudeau, Mireuil'] },
+                { id: 'jeudi', label: 'Jeudi', deadline: '2026-02-05T12:00', locations: ['12h00 — Parking du bowling des Minimes', '12h30 — Parking du SUAPSE, face Carrefour Market, Tasdon/Aytré', '15h30 — Gymnase municipal, rue Pierre de Coubertin, Dompierre-sur-Mer', '16h00 — Salle des fêtes, 1 rue de l\'Aunis, Sainte-Soulle', '16h30 — Place de la mairie, La Jarrie', '17h00 — Parking de la mairie, La Jarne', '17h30 — Centre municipal de rencontre, Saint-Rogatien', '18h00 — Salle polyvalente Jean Fillipi, Puilboreau'] },
+                { id: 'vendredi', label: 'Vendredi', deadline: '2026-02-06T12:00', locations: ['12h00 — Salle polyvalente, Lagord', '12h30 — Ruines de l\'église, Laleu', '13h00 — Face au stade Rochelais, Port Neuf (place de l\'Île de France)', '13h35 — Parc municipal, Salles-sur-Mer', '14h30 — Fond de l\'impasse rue de la Marne (près du commissariat) La Rochelle', '16h45 - 17h20 — École de Villedoux', '18h00 — Salle polyvalente, Saint-Vivien', '18h30 — Parking du stade, Châtelaillon-Plage', '19h15 — Entrée du parking, avenue Marie-François Sadi Carnot, Rochefort'] },
+                { id: 'samedi', label: 'Samedi', deadline: '2026-02-07T10:00', locations: ['12h00 — Face à l\'école Marie Eustelle, Marans', '12h30 — Parking face à l\'église, Andilly', '13h00 — Face à la mairie, Vérines', '13h30 — Parking de la mairie, Saint-Sauveur-d\'Aunis', '14h10 — Parking du collège, Aigrefeuille-d\'Aunis', '14h45 — Monument aux morts, Surgères', '15h40 — Salles municipales de Lafond, 48 avenue Antoine de Saint-Exupéry, La Rochelle'] }
             ]
         };
+        const COMPOSITION_FALLBACK = [ { nom: "Épinard", quantite: "500g" }, { nom: "Pommes", quantite: "1 kg" }, { nom: "Carottes", quantite: "800g" }, { nom: "Poireaux", quantite: "3 pièces" }, { nom: "Oignons", quantite: "500g" }, { nom: "Salade", quantite: "1 pièce" }, { nom: "Butternut", quantite: "1 pièce" } ];
 
-        const COMPOSITION_FALLBACK = [
-            { nom: "Épinard",  quantite: "500g" },
-            { nom: "Pommes",   quantite: "1 kg" },
-            { nom: "Carottes", quantite: "800g" },
-            { nom: "Poireaux", quantite: "3 pièces" },
-            { nom: "Oignons",  quantite: "500g" },
-            { nom: "Salade",   quantite: "1 pièce" },
-            { nom: "Butternut", quantite: "1 pièce" }
-        ];
+        // --- ICONES ---
+        const { useState, useEffect } = React;
+        const ChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
+        const ChevronUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>;
+        const ShoppingBasket = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m5 11 4-7"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8c.9 0 1.8-.7 2-1.6l1.7-7.4"/><path d="m9 11 1 9"/><path d="m4.5 11 .1 9"/><path d="m15 11-1 9"/></svg>;
+        const Plus = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
+        const Minus = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>;
+        const Check = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 6 9 17l-5-5"/></svg>;
+        const Loader = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
 
-        // ============================================================================
-        // COMPOSANT PRINCIPAL
-        // ============================================================================
+        
+        // --- APPLICATION ---
         function MonPanierRochelais() {
-            const [composition, setComposition]       = useState([]);
-            const [csvLoading, setCsvLoading]         = useState(true);
-            const [csvError,   setCsvError]           = useState(false);
+            const [composition, setComposition] = useState([]);
+            const [csvLoading, setCsvLoading] = useState(true);
+            const [csvError, setCsvError] = useState(false);
             const [showComposition, setShowComposition] = useState(false);
-            const [selectedDay, setSelectedDay]       = useState(null);
+            const [selectedDay, setSelectedDay] = useState(null);
             const [orderConfirmed, setOrderConfirmed] = useState(false);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            
+            // État du formulaire
             const [formData, setFormData] = useState({
-                firstName: '', lastName: '', phone: '',
-                location: '', basketCount: 1,
-                replacement: '', extras: {}, comment: ''
+                firstName: '', lastName: '', phone: '', email: '',
+                location: '', basketCount: 1, replacement: '', extras: {}, comment: ''
             });
 
+            // Chargement CSV
             useEffect(() => {
-                if (!CSV_URL || CSV_URL === '') {
-                    setComposition(COMPOSITION_FALLBACK);
-                    setCsvLoading(false);
-                    return;
-                }
-
-                Papa.parse(CSV_URL, {
-                    download: true,
-                    header: true,
-                    skipEmptyLines: true,
-                    dynamicTyping: false,
-                    complete: (results) => {
-                        if (results.data && results.data.length > 0) {
-                            const cleaned = results.data.map(row => ({
-                                nom:      (row['nom'] || row['Nom'] || '').trim(),
-                                quantite: (row['quantite'] || row['Quantité'] || row['quantité'] || '').trim()
-                            })).filter(r => r.nom !== '');
-
-                            setComposition(cleaned);
-                            setCsvLoading(false);
-                        } else {
-                            setComposition(COMPOSITION_FALLBACK);
-                            setCsvLoading(false);
-                            setCsvError(true);
-                        }
-                    },
-                    error: () => {
-                        setComposition(COMPOSITION_FALLBACK);
-                        setCsvLoading(false);
-                        setCsvError(true);
-                    }
-                });
+                if (!CSV_URL || CSV_URL === '') { setComposition(COMPOSITION_FALLBACK); setCsvLoading(false); return; }
+                Papa.parse(CSV_URL, { download: true, header: true, skipEmptyLines: true, dynamicTyping: false, complete: (results) => { if (results.data && results.data.length > 0) { const cleaned = results.data.map(row => ({ nom: (row['nom'] || row['Nom'] || '').trim(), quantite: (row['quantite'] || row['Quantité'] || row['quantité'] || '').trim() })).filter(r => r.nom !== ''); setComposition(cleaned); setCsvLoading(false); } else { setComposition(COMPOSITION_FALLBACK); setCsvLoading(false); setCsvError(true); } }, error: () => { setComposition(COMPOSITION_FALLBACK); setCsvLoading(false); setCsvError(true); } });
             }, []);
 
             const isDayAvailable = (deadline) => new Date() < new Date(deadline);
+            const calculateTotal = () => { let total = WEEKLY_CONFIG.panierPrice * formData.basketCount; Object.entries(formData.extras).forEach(([id, qty]) => { if (qty > 0) { const extra = WEEKLY_CONFIG.extras.find(e => e.id === parseInt(id)); if (extra) total += extra.price * qty; } }); return total.toFixed(2); };
+            const updateExtraQty = (id, delta) => { setFormData(prev => ({ ...prev, extras: { ...prev.extras, [id]: Math.max(0, (prev.extras[id] || 0) + delta) } })); };
 
-            const calculateTotal = () => {
-                let total = WEEKLY_CONFIG.panierPrice * formData.basketCount;
-                Object.entries(formData.extras).forEach(([id, qty]) => {
-                    if (qty > 0) {
-                        const extra = WEEKLY_CONFIG.extras.find(e => e.id === parseInt(id));
-                        if (extra) total += extra.price * qty;
-                    }
-                });
-                return total.toFixed(2);
-            };
-
-            const updateExtraQty = (id, delta) => {
-                setFormData(prev => ({
-                    ...prev,
-                    extras: { ...prev.extras, [id]: Math.max(0, (prev.extras[id] || 0) + delta) }
-                }));
-            };
-
+            // SOUMISSION DU FORMULAIRE
             const handleSubmit = async () => {
-                if (!formData.firstName || !formData.lastName || !formData.phone || !formData.location) {
-                    alert('Veuillez remplir tous les champs obligatoires');
+                // 1. Validation : Nom et Lieu obligatoires
+                if (!formData.firstName || !formData.lastName || !formData.location) {
+                    alert('Merci de renseigner votre Nom, Prénom et le Lieu de retrait.');
                     return;
                 }
+                
+                // 2. Validation : Soit Tel, Soit Email (OU les deux)
+                if (!formData.phone && !formData.email) {
+                    alert('Veuillez indiquer au moins un moyen de contact (Téléphone OU Email).');
+                    return;
+                }
+
+                setIsSubmitting(true);
+
                 const orderData = {
                     date: new Date().toLocaleString('fr-FR'),
                     firstName: formData.firstName,
                     lastName: formData.lastName,
                     phone: formData.phone,
+                    email: formData.email,
                     pickupDay: WEEKLY_CONFIG.pickupDays.find(d => d.id === selectedDay)?.label,
                     location: formData.location,
                     basketCount: formData.basketCount,
-                    extras: Object.entries(formData.extras)
-                        .filter(([_, qty]) => qty > 0)
-                        .map(([id, qty]) => `${WEEKLY_CONFIG.extras.find(e => e.id === parseInt(id))?.name} x${qty}`)
-                        .join(', '),
+                    extras: Object.entries(formData.extras).filter(([_, qty]) => qty > 0).map(([id, qty]) => `${WEEKLY_CONFIG.extras.find(e => e.id === parseInt(id))?.name} x${qty}`).join(', '),
                     total: calculateTotal(),
                     replacement: formData.replacement,
                     comment: formData.comment
                 };
                 
-                // --- ENVOI GOOGLE SCRIPT ---
                 try {
-                    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYc_3ieQjpTTiebFG306gbAmGUq015rcgpIxBaAVTD67PTOdvaoWP5OPPLd9mBx13VHw/exec';
-                    
-                    // Note: 'no-cors' empêche de lire la réponse, mais la requête part quand même.
+                    // Vérification URL
+                    if (GOOGLE_SCRIPT_URL.includes('XXXX')) {
+                        alert("Attention : L'URL du Google Script n'a pas été configurée dans le code.");
+                        setIsSubmitting(false);
+                        return;
+                    }
+
                     await fetch(GOOGLE_SCRIPT_URL, {
                         method: 'POST',
                         mode: 'no-cors',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(orderData)
                     });
-                    
                     setOrderConfirmed(true);
                 } catch (err) {
-                    console.error("Erreur envoi", err);
-                    // On confirme quand même pour ne pas bloquer le client si c'est juste une erreur réseau mineure
+                    console.error(err);
                     setOrderConfirmed(true);
                 }
+                setIsSubmitting(false);
             };
 
             // ÉCRAN DE CONFIRMATION
@@ -240,187 +151,107 @@
                 return (
                     <div className="min-h-screen bg-[#0B2822] text-[#F5F1E8] p-4">
                         <div className="max-w-md mx-auto pt-20 text-center">
-                            <div className="bg-green-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Check className="w-12 h-12 text-white" />
-                            </div>
+                            <div className="bg-green-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><Check className="w-12 h-12 text-white" /></div>
                             <h2 className="text-2xl font-bold mb-4">Commande enregistrée !</h2>
                             <p className="mb-6">
-                                En raison d'un grand nombre d'envois, les mails de confirmation ne partent plus systématiquement.
-                                <strong className="block mt-2">Faites une capture d'écran de cette page.</strong>
+                                {formData.email 
+                                    ? <span>Un email de confirmation a été envoyé à <strong>{formData.email}</strong>.</span> 
+                                    : <span>Pensez à faire une capture d'écran de cette page.</span>
+                                }
                             </p>
                             <div className="bg-[#1a3d36] p-6 rounded-lg mb-6 text-left space-y-2">
+                                <p><strong>Nom :</strong> {formData.firstName} {formData.lastName}</p>
                                 <p><strong>Retrait :</strong> {WEEKLY_CONFIG.pickupDays.find(d => d.id === selectedDay)?.label}</p>
                                 <p><strong>Lieu :</strong> {formData.location}</p>
-                                <p><strong>Paniers :</strong> {formData.basketCount}</p>
-                                {formData.replacement && <p><strong>Remplacement :</strong> {formData.replacement} → Pommes de terre</p>}
                                 <p><strong>Total :</strong> {calculateTotal()} €</p>
                             </div>
-                            <p className="text-sm text-[#F5F1E8]/70 mb-4">
-                                Paiement au retrait : Espèce et chèque (privilégier → 0 frais bancaires), CB accepté
-                            </p>
-                            <button onClick={() => window.location.reload()} className="bg-[#F5F1E8] text-[#0B2822] px-6 py-3 rounded-lg font-semibold hover:bg-[#e5e1d8] transition-colors">
-                                Nouvelle commande
-                            </button>
+                            <button onClick={() => window.location.reload()} className="bg-[#F5F1E8] text-[#0B2822] px-6 py-3 rounded-lg font-semibold hover:bg-[#e5e1d8] transition-colors">Nouvelle commande</button>
                         </div>
                     </div>
                 );
             }
 
-            // ÉCRAN PRINCIPAL
+            // FORMULAIRE PRINCIPAL
             return (
                 <div className="min-h-screen bg-[#0B2822] text-[#F5F1E8] pb-20">
-                    {/* Header */}
                     <div className="text-center pt-8 pb-6 px-4">
                         <div className="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden flex items-center justify-center bg-[#F5F1E8]">
-                            {LOGO_URL && LOGO_URL.includes('http') ? (
-                                <img src={LOGO_URL} alt="Mon Panier Rochelais" className="w-full h-full object-cover" />
-                            ) : (
-                                <ShoppingBasket className="w-12 h-12 text-[#0B2822]" />
-                            )}
+                            {LOGO_URL && LOGO_URL.includes('http') ? (<img src={LOGO_URL} alt="Mon Panier Rochelais" className="w-full h-full object-cover" />) : (<ShoppingBasket className="w-12 h-12 text-[#0B2822]" />)}
                         </div>
                         <h1 className="text-3xl font-bold mb-2">Mon Panier Rochelais</h1>
                         <p className="text-[#F5F1E8]/80">Bienvenue sur l'espace de réservation</p>
                     </div>
 
                     <div className="max-w-md mx-auto px-4">
-
                         {/* Composition */}
                         <div className="mb-6">
-                            <button
-                                onClick={() => setShowComposition(!showComposition)}
-                                className="w-full bg-[#1a3d36] p-4 rounded-lg flex items-center justify-between hover:bg-[#234d45] transition-colors"
-                            >
+                            <button onClick={() => setShowComposition(!showComposition)} className="w-full bg-[#1a3d36] p-4 rounded-lg flex items-center justify-between hover:bg-[#234d45] transition-colors">
                                 <span className="font-semibold text-lg">🥬 Composition de la semaine</span>
                                 {showComposition ? <ChevronUp /> : <ChevronDown />}
                             </button>
-
                             {showComposition && (
                                 <div className="bg-[#1a3d36] mt-2 p-4 rounded-lg">
                                     <p className="font-semibold mb-3">Panier à {WEEKLY_CONFIG.panierPrice} €</p>
-                                    
-                                    {csvLoading && (
-                                        <div className="flex items-center justify-center py-4 text-[#F5F1E8]/60">
-                                            <Loader className="w-5 h-5 animate-spin mr-2" />
-                                            Chargement...
-                                        </div>
-                                    )}
-
-                                    {csvError && !csvLoading && (
-                                        <p className="text-yellow-400 text-xs mb-3">
-                                            ⚠️ CSV non chargé. Données par défaut.
-                                        </p>
-                                    )}
-
-                                    {!csvLoading && (
-                                        <ul className="space-y-2">
-                                            {composition.map((item, i) => (
-                                                <li key={i} className="flex items-center justify-between">
-                                                    <div className="flex items-center">
-                                                        <span className="w-2 h-2 bg-[#F5F1E8] rounded-full mr-3"></span>
-                                                        <span>{item.nom}</span>
-                                                    </div>
-                                                    <span className="text-[#F5F1E8]/70 text-sm">{item.quantite}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
+                                    {csvLoading && <div className="flex items-center justify-center py-4 text-[#F5F1E8]/60"><Loader className="w-5 h-5 animate-spin mr-2" />Chargement...</div>}
+                                    {!csvLoading && <ul className="space-y-2">{composition.map((item, i) => (<li key={i} className="flex items-center justify-between"><div className="flex items-center"><span className="w-2 h-2 bg-[#F5F1E8] rounded-full mr-3"></span><span>{item.nom}</span></div><span className="text-[#F5F1E8]/70 text-sm">{item.quantite}</span></li>))}</ul>}
                                 </div>
                             )}
                         </div>
 
-                        {/* Jours de retrait */}
+                        {/* Choix Jour */}
                         <div className="mb-6">
                             <h2 className="text-xl font-bold mb-4">📅 Choisir le jour de retrait</h2>
                             <div className="grid grid-cols-2 gap-3">
                                 {WEEKLY_CONFIG.pickupDays.map(day => {
                                     if (!isDayAvailable(day.deadline)) return null;
-                                    return (
-                                        <button
-                                            key={day.id}
-                                            onClick={() => { setSelectedDay(day.id); setFormData(p => ({...p, location: ''})); }}
-                                            className={`p-4 rounded-lg font-semibold transition-all ${
-                                                selectedDay === day.id
-                                                    ? 'bg-[#F5F1E8] text-[#0B2822] scale-105 ring-4 ring-[#F5F1E8]/50'
-                                                    : 'bg-[#1a3d36] hover:bg-[#234d45] border-2 border-transparent'
-                                            }`}
-                                        >
-                                            {day.label}
-                                        </button>
-                                    );
+                                    return (<button key={day.id} onClick={() => { setSelectedDay(day.id); setFormData(p => ({...p, location: ''})); }} className={`p-4 rounded-lg font-semibold transition-all ${selectedDay === day.id ? 'bg-[#F5F1E8] text-[#0B2822] scale-105 ring-4 ring-[#F5F1E8]/50' : 'bg-[#1a3d36] hover:bg-[#234d45] border-2 border-transparent'}`}>{day.label}</button>);
                                 })}
                             </div>
                         </div>
 
-                        {/* Formulaire */}
                         {selectedDay && (
                             <div className="space-y-6">
-                                {/* Infos */}
+                                {/* Infos Contact */}
                                 <div className="bg-[#1a3d36] p-4 rounded-lg space-y-4">
-                                    <h3 className="font-semibold text-lg">👤 Vos informations</h3>
-                                    {[
-                                        { key: 'firstName', placeholder: 'Prénom *', type: 'text' },
-                                        { key: 'lastName',  placeholder: 'Nom *',    type: 'text' },
-                                        { key: 'phone',     placeholder: 'Téléphone *', type: 'tel' }
-                                    ].map(f => (
-                                        <input
-                                            key={f.key} type={f.type} placeholder={f.placeholder}
-                                            value={formData[f.key]}
-                                            onChange={e => setFormData({...formData, [f.key]: e.target.value})}
-                                            className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none"
-                                        />
-                                    ))}
+                                    <h3 className="font-semibold text-lg">👤 Vos coordonnées</h3>
+                                    
+                                    {/* Nom / Prénom */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input type="text" placeholder="Prénom *" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 w-full" />
+                                        <input type="text" placeholder="Nom *" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 w-full" />
+                                    </div>
+                                    
+                                    {/* Contact (Tel ou Email) */}
+                                    <div className="pt-2 border-t border-[#F5F1E8]/10">
+                                        <p className="text-xs text-[#F5F1E8]/70 mb-2 uppercase font-bold">Moyen de contact (Remplir au moins l'un des deux)</p>
+                                        <div className="space-y-2">
+                                            <input type="tel" placeholder="Téléphone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none" />
+                                            <input type="email" placeholder="Email (pour recevoir la confirmation)" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none" />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Lieu */}
                                 <div className="bg-[#1a3d36] p-4 rounded-lg">
                                     <h3 className="font-semibold text-lg mb-3">📍 Point de retrait</h3>
-                                    <select
-                                        value={formData.location}
-                                        onChange={e => setFormData({...formData, location: e.target.value})}
-                                        className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none"
-                                    >
+                                    <select value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none">
                                         <option value="">Sélectionner un lieu</option>
-                                        {WEEKLY_CONFIG.pickupDays.find(d => d.id === selectedDay)?.locations.map((loc, i) => (
-                                            <option key={i} value={loc}>{loc}</option>
-                                        ))}
+                                        {WEEKLY_CONFIG.pickupDays.find(d => d.id === selectedDay)?.locations.map((loc, i) => (<option key={i} value={loc}>{loc}</option>))}
                                     </select>
                                 </div>
 
                                 {/* Nombre paniers */}
                                 <div className="bg-[#1a3d36] p-4 rounded-lg">
                                     <h3 className="font-semibold text-lg mb-3">🧺 Nombre de paniers</h3>
-                                    <div className="flex gap-3">
-                                        {[1, 2, 3].map(n => (
-                                            <button
-                                                key={n} type="button"
-                                                onClick={() => setFormData({...formData, basketCount: n})}
-                                                className={`flex-1 p-3 rounded font-semibold transition-all ${
-                                                    formData.basketCount === n
-                                                        ? 'bg-[#F5F1E8] text-[#0B2822] ring-4 ring-[#F5F1E8]/50'
-                                                        : 'bg-[#0B2822] hover:bg-[#0f3229] border-2 border-transparent'
-                                                }`}
-                                            >
-                                                {n}
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <div className="flex gap-3">{[1, 2, 3].map(n => (<button key={n} type="button" onClick={() => setFormData({...formData, basketCount: n})} className={`flex-1 p-3 rounded font-semibold transition-all ${formData.basketCount === n ? 'bg-[#F5F1E8] text-[#0B2822] ring-4 ring-[#F5F1E8]/50' : 'bg-[#0B2822] hover:bg-[#0f3229] border-2 border-transparent'}`}>{n}</button>))}</div>
                                 </div>
 
                                 {/* Remplacement */}
                                 <div className="bg-[#1a3d36] p-4 rounded-lg">
                                     <h3 className="font-semibold text-lg mb-3">🔄 Remplacement</h3>
-                                    <p className="text-sm text-[#F5F1E8]/70 mb-3">
-                                        Choisissez un produit à remplacer par des pommes de terre
-                                    </p>
-                                    <select
-                                        value={formData.replacement}
-                                        onChange={e => setFormData({...formData, replacement: e.target.value})}
-                                        className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none"
-                                    >
+                                    <select value={formData.replacement} onChange={e => setFormData({...formData, replacement: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none">
                                         <option value="">Aucun remplacement</option>
-                                        {composition.map((item, i) => (
-                                            <option key={i} value={item.nom}>{item.nom} → Pommes de terre</option>
-                                        ))}
+                                        {composition.map((item, i) => (<option key={i} value={item.nom}>{item.nom} → Pommes de terre</option>))}
                                     </select>
                                 </div>
 
@@ -429,18 +260,11 @@
                                     <h3 className="font-semibold text-lg mb-4">➕ Ventes complémentaires</h3>
                                     {WEEKLY_CONFIG.extras.map(extra => (
                                         <div key={extra.id} className="flex items-center justify-between mb-3 pb-3 border-b border-[#F5F1E8]/10 last:border-0 last:mb-0 last:pb-0">
-                                            <div>
-                                                <p className="font-medium">{extra.name}</p>
-                                                <p className="text-sm text-[#F5F1E8]/70">{extra.price.toFixed(2)} €</p>
-                                            </div>
+                                            <div><p className="font-medium">{extra.name}</p><p className="text-sm text-[#F5F1E8]/70">{extra.price.toFixed(2)} €</p></div>
                                             <div className="flex items-center gap-2">
-                                                <button type="button" onClick={() => updateExtraQty(extra.id, -1)} className="bg-[#0B2822] p-2 rounded hover:bg-[#0f3229] transition-colors">
-                                                    <Minus />
-                                                </button>
+                                                <button type="button" onClick={() => updateExtraQty(extra.id, -1)} className="bg-[#0B2822] p-2 rounded hover:bg-[#0f3229] transition-colors"><Minus /></button>
                                                 <span className="w-8 text-center font-semibold">{formData.extras[extra.id] || 0}</span>
-                                                <button type="button" onClick={() => updateExtraQty(extra.id, 1)} className="bg-[#0B2822] p-2 rounded hover:bg-[#0f3229] transition-colors">
-                                                    <Plus />
-                                                </button>
+                                                <button type="button" onClick={() => updateExtraQty(extra.id, 1)} className="bg-[#0B2822] p-2 rounded hover:bg-[#0f3229] transition-colors"><Plus /></button>
                                             </div>
                                         </div>
                                     ))}
@@ -448,30 +272,15 @@
 
                                 {/* Commentaire */}
                                 <div className="bg-[#1a3d36] p-4 rounded-lg">
-                                    <h3 className="font-semibold text-lg mb-3">💬 Commentaire (optionnel)</h3>
-                                    <textarea
-                                        placeholder="Informations supplémentaires..."
-                                        value={formData.comment}
-                                        onChange={e => setFormData({...formData, comment: e.target.value})}
-                                        className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none resize-none"
-                                        rows="3"
-                                    />
+                                    <h3 className="font-semibold text-lg mb-3">💬 Commentaire</h3>
+                                    <textarea placeholder="Infos supp..." value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none resize-none" rows="3" />
                                 </div>
 
                                 {/* Validation */}
                                 <div className="bg-[#1a3d36] p-4 rounded-lg">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <span className="text-xl font-bold">💰 Total estimé</span>
-                                        <span className="text-2xl font-bold">{calculateTotal()} €</span>
-                                    </div>
-                                    <p className="text-sm text-[#F5F1E8]/70 mb-4">
-                                        Paiement au retrait : Espèce et chèque (privilégier → 0 frais bancaires), CB accepté
-                                    </p>
-                                    <button
-                                        onClick={handleSubmit}
-                                        className="w-full bg-[#F5F1E8] text-[#0B2822] py-4 rounded-lg font-bold text-lg hover:bg-[#e5e1d8] transition-colors"
-                                    >
-                                        Valider ma commande
+                                    <div className="flex justify-between items-center mb-4"><span className="text-xl font-bold">💰 Total estimé</span><span className="text-2xl font-bold">{calculateTotal()} €</span></div>
+                                    <button onClick={handleSubmit} disabled={isSubmitting} className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${isSubmitting ? 'bg-gray-500 cursor-wait' : 'bg-[#F5F1E8] text-[#0B2822] hover:bg-[#e5e1d8]'}`}>
+                                        {isSubmitting ? 'Envoi en cours...' : 'Valider ma commande'}
                                     </button>
                                 </div>
                             </div>
@@ -481,7 +290,6 @@
             );
         }
 
-        // Rendu final
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<MonPanierRochelais />);
     </script>
