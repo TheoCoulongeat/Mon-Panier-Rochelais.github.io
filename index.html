@@ -13,7 +13,6 @@
 
     <style> 
         body { background-color: #0B2822; color: #F5F1E8; } 
-        /* Animation pour le chargement */
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
@@ -27,7 +26,7 @@
         // 👇👇 ZONE DE CONFIGURATION À MODIFIER 👇👇
         // ============================================================================
         
-        // 1. COLLEZ L'URL DE VOTRE SCRIPT GOOGLE ICI (celle qui finit par /exec)
+        // 1. COLLEZ L'URL DE VOTRE SCRIPT GOOGLE ICI
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYc_3ieQjpTTiebFG306gbAmGUq015rcgpIxBaAVTD67PTOdvaoWP5OPPLd9mBx13VHw/exec'; 
 
         // 2. VOS LIENS GITHUB
@@ -47,16 +46,67 @@
                 { id: 4, name: "Pain bio",          price: 4.20 },
                 { id: 5, name: "Fromage de chèvre", price: 7.80 }
             ],
+            // 👇 LISTE DES LIEUX MISE À JOUR D'APRÈS VOS PHOTOS 👇
             pickupDays: [
-                { id: 'mercredi', label: 'Mercredi', deadline: '2026-02-04T12:00', locations: ['12h00 — Parking de la salle L\'Agora (proche médiathèque Saint-Xandre)', '12h45 — Parking école Jean de La Fontaine, rue du Chemin Bas, Marsilly', '13h15 — Centre bourg, 17 rue Léonce Vieljeux, Nieul-sur-Mer', '13h45 — Parking espace Saint-Exupéry, L\'Houmeau', '16h30 — Parking du Belvédère, Île de Ré', '17h10 — Parking collège de Beauregard, Sautel', '17h45 — Esplanade des parcs, La Rochelle (près salle de basket)', '18h30 — Parking face à Palmilud, Périgny (école maternelle)', '19h00 — Parking face à la pharmacie, proche Intermarché, Villeneuve', '19h30 — Parking salle Giraudeau, Mireuil'] },
-                { id: 'jeudi', label: 'Jeudi', deadline: '2026-02-05T12:00', locations: ['12h00 — Parking du bowling des Minimes', '12h30 — Parking du SUAPSE, face Carrefour Market, Tasdon/Aytré', '15h30 — Gymnase municipal, rue Pierre de Coubertin, Dompierre-sur-Mer', '16h00 — Salle des fêtes, 1 rue de l\'Aunis, Sainte-Soulle', '16h30 — Place de la mairie, La Jarrie', '17h00 — Parking de la mairie, La Jarne', '17h30 — Centre municipal de rencontre, Saint-Rogatien', '18h00 — Salle polyvalente Jean Fillipi, Puilboreau'] },
-                { id: 'vendredi', label: 'Vendredi', deadline: '2026-02-06T12:00', locations: ['12h00 — Salle polyvalente, Lagord', '12h30 — Ruines de l\'église, Laleu', '13h00 — Face au stade Rochelais, Port Neuf (place de l\'Île de France)', '13h35 — Parc municipal, Salles-sur-Mer', '14h30 — Fond de l\'impasse rue de la Marne (près du commissariat) La Rochelle', '16h45 - 17h20 — École de Villedoux', '18h00 — Salle polyvalente, Saint-Vivien', '18h30 — Parking du stade, Châtelaillon-Plage', '19h15 — Entrée du parking, avenue Marie-François Sadi Carnot, Rochefort'] },
-                { id: 'samedi', label: 'Samedi', deadline: '2026-02-07T10:00', locations: ['12h00 — Face à l\'école Marie Eustelle, Marans', '12h30 — Parking face à l\'église, Andilly', '13h00 — Face à la mairie, Vérines', '13h30 — Parking de la mairie, Saint-Sauveur-d\'Aunis', '14h10 — Parking du collège, Aigrefeuille-d\'Aunis', '14h45 — Monument aux morts, Surgères', '15h40 — Salles municipales de Lafond, 48 avenue Antoine de Saint-Exupéry, La Rochelle'] }
+                { 
+                    id: 'mercredi', label: 'Mercredi', deadline: '2026-02-04T12:00', 
+                    locations: [
+                        "12h00 — Parking de la salle L’Agora (proche médiathèque Saint-Xandre)",
+                        "12h45 — Parking école Jean de La Fontaine, rue du Chemin Bas, Marsilly",
+                        "13h15 — Centre bourg, 17 rue Léonce Vieljeux, Nieul-sur-Mer",
+                        "13h45 — Parking espace Saint-Exupéry, L’Houmeau",
+                        "16h30 — Parking du Belvédère, Île de Ré",
+                        "17h10 — Parking collège de Beauregard, Sautel",
+                        "17h45 — Esplanade des parcs, La Rochelle (près salle de basket)",
+                        "18h30 — Parking face à Palmilud, Périgny (école maternelle)",
+                        "19h00 — Parking face à la pharmacie, proche Intermarché, Villeneuve",
+                        "19h30 — Parking salle Giraudeau, Mireuil"
+                    ] 
+                },
+                { 
+                    id: 'jeudi', label: 'Jeudi', deadline: '2026-02-05T12:00', 
+                    locations: [
+                        "12h00 — Parking du bowling des Minimes",
+                        "12h30 — Parking du SUAPSE, face Carrefour Market, Tasdon/Aytré",
+                        "15h30 — Gymnase municipal, rue Pierre de Coubertin, Dompierre-sur-Mer",
+                        "16h00 — Salle des fêtes, 1 rue de l’Aunis, Sainte-Soulle",
+                        "16h30 — Place de la mairie, La Jarrie",
+                        "17h00 — Parking de la mairie, La Jarne",
+                        "17h30 — Centre municipal de rencontre, Saint-Rogatien",
+                        "18h00 — Salle polyvalente Jean Fillipi, Puilboreau"
+                    ] 
+                },
+                { 
+                    id: 'vendredi', label: 'Vendredi', deadline: '2026-02-06T12:00', 
+                    locations: [
+                        "12h00 — Salle polyvalente, Lagord",
+                        "12h30 — Ruines de l’église, Laleu",
+                        "13h00 — Face au stade Rochelais, Port Neuf (place de l’Île de France)",
+                        "13h35 — Parc municipal, Salles-sur-Mer",
+                        "14h30 — Fond de l’impasse rue de la Marne (près du commissariat) La Rochelle",
+                        "16h45 - 17h20 — École de Villedoux",
+                        "18h00 — Salle polyvalente, Saint-Vivien",
+                        "18h30 — Parking du stade, Châtelaillon-Plage",
+                        "19h15 — Entrée du parking, avenue Marie-François Sadi Carnot, Rochefort"
+                    ] 
+                },
+                { 
+                    id: 'samedi', label: 'Samedi', deadline: '2026-02-07T10:00', 
+                    locations: [
+                        "12h00 — Face à l’école Marie Eustelle, Marans",
+                        "12h30 — ⚠️ PARKING FACE À L’ÉGLISE, Andilly",
+                        "13h00 — Face à la mairie, Vérines",
+                        "13h30 — Parking de la mairie, Saint-Sauveur-d’Aunis",
+                        "14h10 — Parking du collège, Aigrefeuille-d’Aunis",
+                        "14h45 — Monument aux morts, Surgères",
+                        "15h40 — Salles municipales de Lafond, 48 avenue Antoine de Saint-Exupéry, La Rochelle"
+                    ] 
+                }
             ]
         };
         const COMPOSITION_FALLBACK = [ { nom: "Épinard", quantite: "500g" }, { nom: "Pommes", quantite: "1 kg" }, { nom: "Carottes", quantite: "800g" }, { nom: "Poireaux", quantite: "3 pièces" }, { nom: "Oignons", quantite: "500g" }, { nom: "Salade", quantite: "1 pièce" }, { nom: "Butternut", quantite: "1 pièce" } ];
 
-        // --- ICONES ---
+        // --- COMPOSANTS ---
         const { useState, useEffect } = React;
         const ChevronDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
         const ChevronUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>;
@@ -77,7 +127,6 @@
             const [orderConfirmed, setOrderConfirmed] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
             
-            // État du formulaire
             const [formData, setFormData] = useState({
                 firstName: '', lastName: '', phone: '', email: '',
                 location: '', basketCount: 1, replacement: '', extras: {}, comment: ''
@@ -93,15 +142,13 @@
             const calculateTotal = () => { let total = WEEKLY_CONFIG.panierPrice * formData.basketCount; Object.entries(formData.extras).forEach(([id, qty]) => { if (qty > 0) { const extra = WEEKLY_CONFIG.extras.find(e => e.id === parseInt(id)); if (extra) total += extra.price * qty; } }); return total.toFixed(2); };
             const updateExtraQty = (id, delta) => { setFormData(prev => ({ ...prev, extras: { ...prev.extras, [id]: Math.max(0, (prev.extras[id] || 0) + delta) } })); };
 
-            // SOUMISSION DU FORMULAIRE
+            // SOUMISSION
             const handleSubmit = async () => {
-                // 1. Validation : Nom et Lieu obligatoires
                 if (!formData.firstName || !formData.lastName || !formData.location) {
                     alert('Merci de renseigner votre Nom, Prénom et le Lieu de retrait.');
                     return;
                 }
                 
-                // 2. Validation : Soit Tel, Soit Email (OU les deux)
                 if (!formData.phone && !formData.email) {
                     alert('Veuillez indiquer au moins un moyen de contact (Téléphone OU Email).');
                     return;
@@ -125,9 +172,8 @@
                 };
                 
                 try {
-                    // Vérification URL
                     if (GOOGLE_SCRIPT_URL.includes('XXXX')) {
-                        alert("Attention : L'URL du Google Script n'a pas été configurée dans le code.");
+                        alert("Attention : L'URL du Google Script n'a pas été configurée.");
                         setIsSubmitting(false);
                         return;
                     }
@@ -146,7 +192,7 @@
                 setIsSubmitting(false);
             };
 
-            // ÉCRAN DE CONFIRMATION
+            // CONFIRMATION
             if (orderConfirmed) {
                 return (
                     <div className="min-h-screen bg-[#0B2822] text-[#F5F1E8] p-4">
@@ -171,7 +217,7 @@
                 );
             }
 
-            // FORMULAIRE PRINCIPAL
+            // FORMULAIRE
             return (
                 <div className="min-h-screen bg-[#0B2822] text-[#F5F1E8] pb-20">
                     <div className="text-center pt-8 pb-6 px-4">
@@ -215,18 +261,16 @@
                                 <div className="bg-[#1a3d36] p-4 rounded-lg space-y-4">
                                     <h3 className="font-semibold text-lg">👤 Vos coordonnées</h3>
                                     
-                                    {/* Nom / Prénom */}
                                     <div className="grid grid-cols-2 gap-2">
                                         <input type="text" placeholder="Prénom *" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 w-full" />
                                         <input type="text" placeholder="Nom *" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 w-full" />
                                     </div>
                                     
-                                    {/* Contact (Tel ou Email) */}
                                     <div className="pt-2 border-t border-[#F5F1E8]/10">
                                         <p className="text-xs text-[#F5F1E8]/70 mb-2 uppercase font-bold">Moyen de contact (Remplir au moins l'un des deux)</p>
                                         <div className="space-y-2">
                                             <input type="tel" placeholder="Téléphone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none" />
-                                            <input type="email" placeholder="Email (pour recevoir la confirmation)" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none" />
+                                            <input type="email" placeholder="Email (pour confirmation)" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none" />
                                         </div>
                                     </div>
                                 </div>
