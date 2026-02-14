@@ -15,6 +15,8 @@
         body { background-color: #0B2822; color: #F5F1E8; } 
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        /* Style pour le toggle livraison */
+        .toggle-btn.active { background-color: #F5F1E8; color: #0B2822; border-color: #F5F1E8; }
     </style>
 </head>
 <body>
@@ -28,11 +30,13 @@
         
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYc_3ieQjpTTiebFG306gbAmGUq015rcgpIxBaAVTD67PTOdvaoWP5OPPLd9mBx13VHw/exec'; 
 
-        // LE FICHIER UNIQUE (Master File)
-        // Note : J'ai corrigé le lien pour qu'il pointe bien vers le fichier brut (raw)
         const REPO_BASE = 'https://raw.githubusercontent.com/TheoCoulongeat/Mon-Panier-Rochelais.github.io/main';
         const CSV_MASTER_URL = `${REPO_BASE}/donnees.csv`;
-        const LOGO_URL       = `${REPO_BASE}/Logo.png`;
+        const LOGO_URL        = `${REPO_BASE}/Logo.png`;
+
+        // CONFIGURATION LIVRAISON
+        // Mettez à FALSE si vous voulez couper l'option livraison temporairement
+        const LIVRAISON_AVAILABLE = true; 
 
         // ============================================================================
         const { useState, useEffect } = React;
@@ -45,6 +49,8 @@
         const Minus = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>;
         const Check = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 6 9 17l-5-5"/></svg>;
         const Loader = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
+        const Truck = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>;
+        const MapPin = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>;
 
         // --- APPLICATION ---
         function MonPanierRochelais() {
@@ -56,6 +62,11 @@
             const [selectedDay, setSelectedDay] = useState(null);
             const [orderConfirmed, setOrderConfirmed] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
+            
+            // Nouveaux états pour la livraison
+            const [deliveryMode, setDeliveryMode] = useState('pickup'); // 'pickup' ou 'delivery'
+            const [address, setAddress] = useState('');
+
             const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', email: '', location: '', basketCount: 1, replacement: '', extras: {}, comment: '' });
 
             // ── CHARGEMENT INTELLIGENT DU FICHIER UNIQUE ──
@@ -80,7 +91,7 @@
                                 if (row.length === 0) return;
                                 const firstCell = (row[0] || '').trim();
 
-                                // 🛑 NOUVEAU : On ignore les lignes qui commencent par //
+                                // On ignore les commentaires
                                 if (firstCell.startsWith('//')) return;
 
                                 // Détection des sections
@@ -138,6 +149,15 @@
                 return new Date() < new Date(deadline);
             };
 
+            // Vérifier si la livraison est possible (Jeudi ou Samedi)
+            const isDeliveryOptionAvailable = () => {
+                if (!LIVRAISON_AVAILABLE) return false;
+                const dayObj = config.pickupDays.find(d => d.id === selectedDay);
+                if (!dayObj) return false;
+                const dayName = dayObj.label.toLowerCase();
+                return dayName.includes('jeudi') || dayName.includes('samedi');
+            };
+
             const calculateTotal = () => {
                 let total = config.panierPrice * formData.basketCount;
                 Object.entries(formData.extras).forEach(([id, qty]) => {
@@ -153,16 +173,45 @@
                 setFormData(prev => ({ ...prev, extras: { ...prev.extras, [id]: Math.max(0, (prev.extras[id] || 0) + delta) } }));
             };
 
+            // Gestion du changement de jour
+            const handleDayChange = (dayId) => {
+                setSelectedDay(dayId);
+                setFormData(p => ({...p, location: ''}));
+                setDeliveryMode('pickup'); // Reset en retrait par défaut
+                setAddress('');
+            };
+
             const handleSubmit = async () => {
-                if (!formData.firstName || !formData.lastName || !formData.location) { alert('Merci de renseigner votre Nom, Prénom et le Lieu de retrait.'); return; }
+                if (!formData.firstName || !formData.lastName) { alert('Merci de renseigner votre Nom et Prénom.'); return; }
+                
+                // Validation spécifique selon le mode
+                let finalLocation = '';
+                if (deliveryMode === 'delivery') {
+                    if (!address || address.length < 5) { alert('Merci de renseigner une adresse complète pour la livraison.'); return; }
+                    finalLocation = `LIVRAISON DOMICILE : ${address}`;
+                } else {
+                    if (!formData.location) { alert('Merci de sélectionner un lieu de retrait.'); return; }
+                    finalLocation = formData.location;
+                }
+
                 if (!formData.phone && !formData.email) { alert('Veuillez indiquer au moins un moyen de contact (Téléphone OU Email).'); return; }
 
                 setIsSubmitting(true);
                 const extrasText = Object.entries(formData.extras).filter(([_, qty]) => qty > 0).map(([id, qty]) => { const ex = config.extras.find(e => e.id === parseInt(id)); return ex ? `${ex.name} x${qty}` : ''; }).join(', ');
+                
                 const orderData = {
-                    date: new Date().toLocaleString('fr-FR'), firstName: formData.firstName, lastName: formData.lastName, phone: formData.phone, email: formData.email,
-                    pickupDay: config.pickupDays.find(d => d.id === selectedDay)?.label, location: formData.location, basketCount: formData.basketCount,
-                    total: calculateTotal().replace('.', ','), replacement: formData.replacement, extras: extrasText, comment: formData.comment
+                    date: new Date().toLocaleString('fr-FR'), 
+                    firstName: formData.firstName, 
+                    lastName: formData.lastName, 
+                    phone: formData.phone, 
+                    email: formData.email,
+                    pickupDay: config.pickupDays.find(d => d.id === selectedDay)?.label, 
+                    location: finalLocation, // On utilise la localisation calculée
+                    basketCount: formData.basketCount,
+                    total: calculateTotal().replace('.', ','), 
+                    replacement: formData.replacement, 
+                    extras: extrasText, 
+                    comment: formData.comment
                 };
                 
                 try {
@@ -182,7 +231,7 @@
                         <div className="bg-[#1a3d36] p-6 rounded-lg mb-6 text-left space-y-2">
                             <p><strong>Nom :</strong> {formData.firstName} {formData.lastName}</p>
                             <p><strong>Retrait :</strong> {config.pickupDays.find(d => d.id === selectedDay)?.label}</p>
-                            <p><strong>Lieu :</strong> {formData.location}</p>
+                            <p><strong>Lieu :</strong> {deliveryMode === 'delivery' ? `LIVRAISON : ${address}` : formData.location}</p>
                             <p><strong>Total :</strong> {calculateTotal()} €</p>
                         </div>
                         <button onClick={() => window.location.reload()} className="bg-[#F5F1E8] text-[#0B2822] px-6 py-3 rounded-lg font-semibold hover:bg-[#e5e1d8] transition-colors">Nouvelle commande</button>
@@ -207,11 +256,66 @@
                             <button onClick={() => setShowComposition(!showComposition)} className="w-full bg-[#1a3d36] p-4 rounded-lg flex items-center justify-between hover:bg-[#234d45] transition-colors"><span className="font-semibold text-lg">🥬 Composition de la semaine</span>{showComposition ? <ChevronUp /> : <ChevronDown />}</button>
                             {showComposition && (<div className="bg-[#1a3d36] mt-2 p-4 rounded-lg"><p className="font-semibold mb-3">Panier à {config.panierPrice} €</p><ul className="space-y-2">{composition.map((item, i) => (<li key={i} className="flex items-center justify-between"><div className="flex items-center"><span className="w-2 h-2 bg-[#F5F1E8] rounded-full mr-3"></span><span>{item.nom}</span></div><span className="text-[#F5F1E8]/70 text-sm">{item.quantite}</span></li>))}</ul></div>)}
                         </div>
-                        <div className="mb-6"><h2 className="text-xl font-bold mb-4">📅 Choisir le jour de retrait</h2><div className="grid grid-cols-2 gap-3">{config.pickupDays.map(day => { if (!isDayAvailable(day.deadline)) return null; return (<button key={day.id} onClick={() => { setSelectedDay(day.id); setFormData(p => ({...p, location: ''})); }} className={`p-4 rounded-lg font-semibold transition-all ${selectedDay === day.id ? 'bg-[#F5F1E8] text-[#0B2822] scale-105 ring-4 ring-[#F5F1E8]/50' : 'bg-[#1a3d36] hover:bg-[#234d45] border-2 border-transparent'}`}>{day.label}</button>); })}</div></div>
+                        
+                        <div className="mb-6"><h2 className="text-xl font-bold mb-4">📅 Choisir le jour</h2>
+                            <div className="grid grid-cols-2 gap-3">
+                                {config.pickupDays.map(day => { 
+                                    if (!isDayAvailable(day.deadline)) return null; 
+                                    return (
+                                        <button key={day.id} onClick={() => handleDayChange(day.id)} className={`p-4 rounded-lg font-semibold transition-all ${selectedDay === day.id ? 'bg-[#F5F1E8] text-[#0B2822] scale-105 ring-4 ring-[#F5F1E8]/50' : 'bg-[#1a3d36] hover:bg-[#234d45] border-2 border-transparent'}`}>{day.label}</button>
+                                    ); 
+                                })}
+                            </div>
+                        </div>
+
                         {selectedDay && (
                             <div className="space-y-6">
                                 <div className="bg-[#1a3d36] p-4 rounded-lg space-y-4"><h3 className="font-semibold text-lg">👤 Vos coordonnées</h3><div className="grid grid-cols-2 gap-2"><input type="text" placeholder="Prénom *" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 w-full" /><input type="text" placeholder="Nom *" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 w-full" /></div><div className="pt-2 border-t border-[#F5F1E8]/10"><p className="text-xs text-[#F5F1E8]/70 mb-2 uppercase font-bold">Moyen de contact (Remplir au moins l'un des deux)</p><div className="space-y-2"><input type="tel" placeholder="Téléphone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none" /><input type="email" placeholder="Email (pour confirmation)" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none" /></div></div></div>
-                                <div className="bg-[#1a3d36] p-4 rounded-lg"><h3 className="font-semibold text-lg mb-3">📍 Point de retrait</h3><select value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none"><option value="">Sélectionner un lieu</option>{config.pickupDays.find(d => d.id === selectedDay)?.locations.map((loc, i) => (<option key={i} value={loc}>{loc}</option>))}</select></div>
+                                
+                                <div className="bg-[#1a3d36] p-4 rounded-lg">
+                                    <h3 className="font-semibold text-lg mb-3">📍 Mode de récupération</h3>
+                                    
+                                    {/* SÉLECTEUR DE MODE SI LIVRAISON DISPO */}
+                                    {isDeliveryOptionAvailable() && (
+                                        <div className="flex gap-2 mb-4 p-1 bg-[#0B2822] rounded-lg">
+                                            <button 
+                                                onClick={() => setDeliveryMode('pickup')}
+                                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all ${deliveryMode === 'pickup' ? 'bg-[#F5F1E8] text-[#0B2822] font-bold shadow' : 'text-[#F5F1E8]/70 hover:text-[#F5F1E8]'}`}
+                                            >
+                                                <MapPin size={18} /> Point de retrait
+                                            </button>
+                                            <button 
+                                                onClick={() => setDeliveryMode('delivery')}
+                                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all ${deliveryMode === 'delivery' ? 'bg-[#F5F1E8] text-[#0B2822] font-bold shadow' : 'text-[#F5F1E8]/70 hover:text-[#F5F1E8]'}`}
+                                            >
+                                                <Truck size={18} /> A Domicile
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* LOGIQUE D'AFFICHAGE SELON LE MODE */}
+                                    {deliveryMode === 'delivery' ? (
+                                        <div className="space-y-2 animate-fadeIn">
+                                            <label className="text-sm font-semibold text-[#F5F1E8]/80">Votre adresse de livraison :</label>
+                                            <textarea 
+                                                placeholder="N°, Rue, Code Postal, Ville, Code d'accès..." 
+                                                value={address}
+                                                onChange={e => setAddress(e.target.value)}
+                                                className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none h-24"
+                                            />
+                                            <p className="text-xs text-yellow-300 italic">⚠️ Attention : Le nombre de livraisons est limité.</p>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <label className="text-sm font-semibold text-[#F5F1E8]/80 block mb-2">Choisir un point de retrait :</label>
+                                            <select value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none">
+                                                <option value="">Sélectionner un lieu</option>
+                                                {config.pickupDays.find(d => d.id === selectedDay)?.locations.map((loc, i) => (<option key={i} value={loc}>{loc}</option>))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="bg-[#1a3d36] p-4 rounded-lg"><h3 className="font-semibold text-lg mb-3">🧺 Nombre de paniers</h3><div className="flex gap-3">{[1, 2, 3].map(n => (<button key={n} type="button" onClick={() => setFormData({...formData, basketCount: n})} className={`flex-1 p-3 rounded font-semibold transition-all ${formData.basketCount === n ? 'bg-[#F5F1E8] text-[#0B2822] ring-4 ring-[#F5F1E8]/50' : 'bg-[#0B2822] hover:bg-[#0f3229] border-2 border-transparent'}`}>{n}</button>))}</div></div>
                                 <div className="bg-[#1a3d36] p-4 rounded-lg"><h3 className="font-semibold text-lg mb-3">🔄 Remplacement</h3><select value={formData.replacement} onChange={e => setFormData({...formData, replacement: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none"><option value="">Aucun remplacement</option>{composition.map((item, i) => (<option key={i} value={item.nom}>{item.nom} → Pommes de terre</option>))}</select></div>
                                 <div className="bg-[#1a3d36] p-4 rounded-lg"><h3 className="font-semibold text-lg mb-4">➕ Ventes complémentaires</h3>{config.extras.map(extra => (<div key={extra.id} className="flex items-center justify-between mb-3 pb-3 border-b border-[#F5F1E8]/10 last:border-0 last:mb-0 last:pb-0"><div><p className="font-medium">{extra.name}</p><p className="text-sm text-[#F5F1E8]/70">{extra.price.toFixed(2)} €</p></div><div className="flex items-center gap-2"><button type="button" onClick={() => updateExtraQty(extra.id, -1)} className="bg-[#0B2822] p-2 rounded hover:bg-[#0f3229] transition-colors"><Minus /></button><span className="w-8 text-center font-semibold">{formData.extras[extra.id] || 0}</span><button type="button" onClick={() => updateExtraQty(extra.id, 1)} className="bg-[#0B2822] p-2 rounded hover:bg-[#0f3229] transition-colors"><Plus /></button></div></div>))}</div>
