@@ -3,6 +3,7 @@ TYPE,INFO_1,INFO_2
 [CONFIG] 
 // Prix d'un panier
 PRIX,31.90
+LIVRAISON,OUI
 
 [PANIER]
 // Fruit ou légume, quantité
