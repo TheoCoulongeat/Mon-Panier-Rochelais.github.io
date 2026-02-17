@@ -15,8 +15,6 @@
         body { background-color: #0B2822; color: #F5F1E8; } 
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        /* Style pour le toggle livraison */
-        .toggle-btn.active { background-color: #F5F1E8; color: #0B2822; border-color: #F5F1E8; }
     </style>
 </head>
 <body>
@@ -25,20 +23,15 @@
 
     <script type="text/babel">
         // ============================================================================
-        // 👇👇 ZONE DE CONFIGURATION (URLS) 👇👇
+        // 👇👇 CONFIGURATION 👇👇
         // ============================================================================
-        
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYc_3ieQjpTTiebFG306gbAmGUq015rcgpIxBaAVTD67PTOdvaoWP5OPPLd9mBx13VHw/exec'; 
-
+        
         const REPO_BASE = 'https://raw.githubusercontent.com/TheoCoulongeat/Mon-Panier-Rochelais.github.io/main';
         const CSV_MASTER_URL = `${REPO_BASE}/donnees.csv`;
         const LOGO_URL        = `${REPO_BASE}/Logo.png`;
-
-        // CONFIGURATION LIVRAISON
-        // Mettez à FALSE si vous voulez couper l'option livraison temporairement
-        const LIVRAISON_AVAILABLE = true; 
-
         // ============================================================================
+
         const { useState, useEffect } = React;
 
         // --- ICONES ---
@@ -52,10 +45,14 @@
         const Truck = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>;
         const MapPin = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>;
 
-        // --- APPLICATION ---
         function MonPanierRochelais() {
             const [composition, setComposition] = useState([]);
             const [config, setConfig] = useState({ panierPrice: 31.90, extras: [], pickupDays: [] });
+            
+            // 👇 ETATS IMPORTANTS POUR LA GESTION DU QUOTA 👇
+            const [deliveryAllowedByCSV, setDeliveryAllowedByCSV] = useState(false); // Réglage Manuel (CSV)
+            const [deliveryAllowedByQuota, setDeliveryAllowedByQuota] = useState(true); // Réglage Automatique (Script)
+            
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(false);
             const [showComposition, setShowComposition] = useState(false);
@@ -63,14 +60,12 @@
             const [orderConfirmed, setOrderConfirmed] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
             
-            // Nouveaux états pour la livraison
-            const [deliveryMode, setDeliveryMode] = useState('pickup'); // 'pickup' ou 'delivery'
+            const [deliveryMode, setDeliveryMode] = useState('pickup');
             const [address, setAddress] = useState('');
-
             const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', email: '', location: '', basketCount: 1, replacement: '', extras: {}, comment: '' });
 
-            // ── CHARGEMENT INTELLIGENT DU FICHIER UNIQUE ──
             useEffect(() => {
+                // 1. Charger le CSV
                 Papa.parse(CSV_MASTER_URL, {
                     download: true,
                     skipEmptyLines: true,
@@ -78,47 +73,30 @@
                         try {
                             const rawData = results.data;
                             let currentSection = '';
-                            
-                            // Variables temporaires
                             let tempPrice = 31.90;
+                            let tempDelivery = false; 
                             let tempCompo = [];
                             let tempExtras = [];
                             let tempDeadlines = [];
                             let tempLieux = [];
 
-                            // Lecture ligne par ligne
                             rawData.forEach(row => {
                                 if (row.length === 0) return;
                                 const firstCell = (row[0] || '').trim();
-
-                                // On ignore les commentaires
                                 if (firstCell.startsWith('//')) return;
+                                if (firstCell.startsWith('[') && firstCell.endsWith(']')) { currentSection = firstCell; return; }
 
-                                // Détection des sections
-                                if (firstCell.startsWith('[') && firstCell.endsWith(']')) {
-                                    currentSection = firstCell;
-                                    return;
-                                }
-
-                                // Remplissage selon la section active
                                 if (currentSection === '[CONFIG]') {
                                     if (firstCell === 'PRIX') tempPrice = parseFloat((row[1] || '0').replace(',', '.'));
+                                    // 👉 ICI : On lit si vous avez mis LIVRAISON,OUI dans le CSV
+                                    if (firstCell === 'LIVRAISON') tempDelivery = (row[1] || '').trim().toUpperCase() === 'OUI';
                                 }
-                                else if (currentSection === '[PANIER]') {
-                                    if (row[1]) tempCompo.push({ nom: firstCell, quantite: row[1] });
-                                }
-                                else if (currentSection === '[EXTRAS]') {
-                                    if (row[1]) tempExtras.push({ id: tempExtras.length + 1, name: firstCell, price: parseFloat((row[1] || '0').replace(',', '.')) });
-                                }
-                                else if (currentSection === '[DEADLINES]') {
-                                    if (row[1] && row[2]) tempDeadlines.push({ jour: firstCell, fullDate: `${row[1]}T${row[2]}` });
-                                }
-                                else if (currentSection === '[LIEUX]') {
-                                    if (row[1]) tempLieux.push({ jour: firstCell, lieu: row[1] });
-                                }
+                                else if (currentSection === '[PANIER]') { if (row[1]) tempCompo.push({ nom: firstCell, quantite: row[1] }); }
+                                else if (currentSection === '[EXTRAS]') { if (row[1]) tempExtras.push({ id: tempExtras.length + 1, name: firstCell, price: parseFloat((row[1] || '0').replace(',', '.')) }); }
+                                else if (currentSection === '[DEADLINES]') { if (row[1] && row[2]) tempDeadlines.push({ jour: firstCell, fullDate: `${row[1]}T${row[2]}` }); }
+                                else if (currentSection === '[LIEUX]') { if (row[1]) tempLieux.push({ jour: firstCell, lieu: row[1] }); }
                             });
 
-                            // Fusion Deadlines + Lieux
                             const daysMap = {};
                             tempDeadlines.forEach(d => {
                                 const key = d.jour.toLowerCase();
@@ -129,19 +107,30 @@
                                 if (daysMap[key]) daysMap[key].locations.push(l.lieu);
                             });
 
-                            // Mise à jour de l'app
                             setComposition(tempCompo);
                             setConfig({ panierPrice: tempPrice, extras: tempExtras, pickupDays: Object.values(daysMap) });
+                            setDeliveryAllowedByCSV(tempDelivery); // On active/désactive selon le CSV
                             setLoading(false);
 
-                        } catch (err) {
-                            console.error("Erreur parsing", err);
-                            setError(true);
-                            setLoading(false);
-                        }
+                        } catch (err) { console.error("Erreur parsing", err); setError(true); setLoading(false); }
                     },
                     error: () => { setError(true); setLoading(false); }
                 });
+
+                // 2. 👉 ICI : ON DEMANDE AU SCRIPT SI C'EST COMPLET
+                if (GOOGLE_SCRIPT_URL.includes('http')) {
+                    fetch(GOOGLE_SCRIPT_URL)
+                        .then(res => res.json())
+                        .then(data => {
+                            console.log("Compteur livraisons reçu :", data);
+                            // Si le script dit "false" (plus de place), on bloque.
+                            if (data.disponible === false) {
+                                setDeliveryAllowedByQuota(false); 
+                            }
+                        })
+                        .catch(err => console.log("Erreur vérification quota :", err));
+                }
+
             }, []);
 
             const isDayAvailable = (deadline) => {
@@ -149,9 +138,13 @@
                 return new Date() < new Date(deadline);
             };
 
-            // Vérifier si la livraison est possible (Jeudi ou Samedi)
+            // 3. 👉 ICI : LA LOGIQUE FINALE D'AFFICHAGE
             const isDeliveryOptionAvailable = () => {
-                if (!LIVRAISON_AVAILABLE) return false;
+                // IL FAUT QUE :
+                // 1. Le CSV dise OUI (Manuel)
+                // 2. Le Script dise OUI (Quota pas atteint)
+                if (!deliveryAllowedByCSV || !deliveryAllowedByQuota) return false;
+                
                 const dayObj = config.pickupDays.find(d => d.id === selectedDay);
                 if (!dayObj) return false;
                 const dayName = dayObj.label.toLowerCase();
@@ -161,10 +154,7 @@
             const calculateTotal = () => {
                 let total = config.panierPrice * formData.basketCount;
                 Object.entries(formData.extras).forEach(([id, qty]) => {
-                    if (qty > 0) {
-                        const extra = config.extras.find(e => e.id === parseInt(id));
-                        if (extra) total += extra.price * qty;
-                    }
+                    if (qty > 0) { const extra = config.extras.find(e => e.id === parseInt(id)); if (extra) total += extra.price * qty; }
                 });
                 return total.toFixed(2);
             };
@@ -173,18 +163,16 @@
                 setFormData(prev => ({ ...prev, extras: { ...prev.extras, [id]: Math.max(0, (prev.extras[id] || 0) + delta) } }));
             };
 
-            // Gestion du changement de jour
             const handleDayChange = (dayId) => {
                 setSelectedDay(dayId);
                 setFormData(p => ({...p, location: ''}));
-                setDeliveryMode('pickup'); // Reset en retrait par défaut
+                setDeliveryMode('pickup');
                 setAddress('');
             };
 
             const handleSubmit = async () => {
                 if (!formData.firstName || !formData.lastName) { alert('Merci de renseigner votre Nom et Prénom.'); return; }
                 
-                // Validation spécifique selon le mode
                 let finalLocation = '';
                 if (deliveryMode === 'delivery') {
                     if (!address || address.length < 5) { alert('Merci de renseigner une adresse complète pour la livraison.'); return; }
@@ -194,28 +182,19 @@
                     finalLocation = formData.location;
                 }
 
-                if (!formData.phone && !formData.email) { alert('Veuillez indiquer au moins un moyen de contact (Téléphone OU Email).'); return; }
+                if (!formData.phone && !formData.email) { alert('Veuillez indiquer au moins un moyen de contact.'); return; }
 
                 setIsSubmitting(true);
                 const extrasText = Object.entries(formData.extras).filter(([_, qty]) => qty > 0).map(([id, qty]) => { const ex = config.extras.find(e => e.id === parseInt(id)); return ex ? `${ex.name} x${qty}` : ''; }).join(', ');
                 
                 const orderData = {
-                    date: new Date().toLocaleString('fr-FR'), 
-                    firstName: formData.firstName, 
-                    lastName: formData.lastName, 
-                    phone: formData.phone, 
-                    email: formData.email,
-                    pickupDay: config.pickupDays.find(d => d.id === selectedDay)?.label, 
-                    location: finalLocation, // On utilise la localisation calculée
-                    basketCount: formData.basketCount,
-                    total: calculateTotal().replace('.', ','), 
-                    replacement: formData.replacement, 
-                    extras: extrasText, 
-                    comment: formData.comment
+                    date: new Date().toLocaleString('fr-FR'), firstName: formData.firstName, lastName: formData.lastName, 
+                    phone: formData.phone, email: formData.email, pickupDay: config.pickupDays.find(d => d.id === selectedDay)?.label, 
+                    location: finalLocation, basketCount: formData.basketCount, total: calculateTotal().replace('.', ','), 
+                    replacement: formData.replacement, extras: extrasText, comment: formData.comment
                 };
                 
                 try {
-                    if (GOOGLE_SCRIPT_URL.includes('XXXX')) { alert("Attention : L'URL du Google Script n'a pas été configurée."); setIsSubmitting(false); return; }
                     await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderData) });
                     setOrderConfirmed(true);
                 } catch (err) { console.error(err); setOrderConfirmed(true); }
@@ -275,43 +254,27 @@
                                 <div className="bg-[#1a3d36] p-4 rounded-lg">
                                     <h3 className="font-semibold text-lg mb-3">📍 Mode de récupération</h3>
                                     
-                                    {/* SÉLECTEUR DE MODE SI LIVRAISON DISPO */}
                                     {isDeliveryOptionAvailable() && (
                                         <div className="flex gap-2 mb-4 p-1 bg-[#0B2822] rounded-lg">
-                                            <button 
-                                                onClick={() => setDeliveryMode('pickup')}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all ${deliveryMode === 'pickup' ? 'bg-[#F5F1E8] text-[#0B2822] font-bold shadow' : 'text-[#F5F1E8]/70 hover:text-[#F5F1E8]'}`}
-                                            >
+                                            <button onClick={() => setDeliveryMode('pickup')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all ${deliveryMode === 'pickup' ? 'bg-[#F5F1E8] text-[#0B2822] font-bold shadow' : 'text-[#F5F1E8]/70 hover:text-[#F5F1E8]'}`}>
                                                 <MapPin size={18} /> Point de retrait
                                             </button>
-                                            <button 
-                                                onClick={() => setDeliveryMode('delivery')}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all ${deliveryMode === 'delivery' ? 'bg-[#F5F1E8] text-[#0B2822] font-bold shadow' : 'text-[#F5F1E8]/70 hover:text-[#F5F1E8]'}`}
-                                            >
+                                            <button onClick={() => setDeliveryMode('delivery')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all ${deliveryMode === 'delivery' ? 'bg-[#F5F1E8] text-[#0B2822] font-bold shadow' : 'text-[#F5F1E8]/70 hover:text-[#F5F1E8]'}`}>
                                                 <Truck size={18} /> A Domicile
                                             </button>
                                         </div>
                                     )}
 
-                                    {/* LOGIQUE D'AFFICHAGE SELON LE MODE */}
-                                    {deliveryMode === 'delivery' ? (
+                                    {deliveryMode === 'delivery' && isDeliveryOptionAvailable() ? (
                                         <div className="space-y-2 animate-fadeIn">
                                             <label className="text-sm font-semibold text-[#F5F1E8]/80">Votre adresse de livraison :</label>
-                                            <textarea 
-                                                placeholder="N°, Rue, Code Postal, Ville, Code d'accès..." 
-                                                value={address}
-                                                onChange={e => setAddress(e.target.value)}
-                                                className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none h-24"
-                                            />
+                                            <textarea placeholder="N°, Rue, Code Postal, Ville, Code d'accès..." value={address} onChange={e => setAddress(e.target.value)} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none h-24" />
                                             <p className="text-xs text-yellow-300 italic">⚠️ Attention : Le nombre de livraisons est limité.</p>
                                         </div>
                                     ) : (
                                         <div>
                                             <label className="text-sm font-semibold text-[#F5F1E8]/80 block mb-2">Choisir un point de retrait :</label>
-                                            <select value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none">
-                                                <option value="">Sélectionner un lieu</option>
-                                                {config.pickupDays.find(d => d.id === selectedDay)?.locations.map((loc, i) => (<option key={i} value={loc}>{loc}</option>))}
-                                            </select>
+                                            <select value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#0B2822] p-3 rounded border border-[#F5F1E8]/20 focus:border-[#F5F1E8]/50 outline-none"><option value="">Sélectionner un lieu</option>{config.pickupDays.find(d => d.id === selectedDay)?.locations.map((loc, i) => (<option key={i} value={loc}>{loc}</option>))}</select>
                                         </div>
                                     )}
                                 </div>
